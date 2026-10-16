@@ -1,6 +1,6 @@
 # Reference-aligned baseline protocol
 
-The next experiment targets a configuration documented in Neel Nanda's modular-addition walkthrough. It is separate from the measured 30,000-step pilot. A short CPU diagnostic now demonstrates near-perfect memorization, but the full baseline has not yet run and grokking is not claimed.
+This experiment targets a configuration documented in Neel Nanda's modular-addition walkthrough. It is separate from the measured 30,000-step pilot. The subsequent 25,000-step GPU run is now complete and shows the declared grokking signature: train crossing 200, validation crossing 8,800, final validation accuracy 100%. See [the measured results](REFERENCE_RESULTS.md). The protocol and source deviations below are retained.
 
 ## Source and differences
 

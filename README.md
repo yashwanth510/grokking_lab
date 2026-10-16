@@ -2,11 +2,11 @@
 
 Modular-addition experiments with a small causal Transformer: training curves, Fourier analysis, probes and interventions. This is an independent, paper-inspired implementation.
 
-The original 30,000-step Tesla T4 pilot reached **81.04% training accuracy** and **63.02% validation accuracy**. It did not demonstrate grokking. A new reference-aligned configuration reached **100% training accuracy by step 200** in a short CPU diagnostic; validation accuracy was **1.84% at step 500**. That establishes memorization, not grokking. The full new baseline, multi-seed comparisons and final test remain unrun.
+The completed reference-aligned run **shows grokking under the declared criterion**: sustained 99% training accuracy at step **200**, sustained 99% validation accuracy at **8,800**, an **8,600-update delay**, and **100% final training and validation accuracy** after 25,000 updates. The original pilot remains documented at 81.04% training and 63.02% validation accuracy. This is one successful seed; multi-seed comparisons and final test evaluation remain unrun.
 
-![Original pilot learning curves](results/pilot_seed0/learning_curves.png)
+![Reference-aligned learning curves](results/reference_seed999/learning_curves.png)
 
-Read [the measured pilot report](reports/RESULTS.md) and [the new baseline protocol and reference differences](reports/REFERENCE_BASELINE.md).
+Read [the grokking results](reports/REFERENCE_RESULTS.md), [the original pilot report](reports/RESULTS.md), and [the baseline protocol and reference differences](reports/REFERENCE_BASELINE.md).
 
 ## Run the new baseline
 
@@ -55,7 +55,10 @@ python -m grokking_lab extend --source runs/reference_seed999 --name reference_e
 
 Extensions preserve the parent run and record its checkpoint checksum and the exploratory protocol change. They are not evidence from the original fixed-horizon experiment. The original experiment remains reproducible with `configs/pilot.json`.
 
-## Download the measured model
+## Download the measured models
+
+The successful run is available in the [reference-v1 release](https://github.com/yashwanth510/grokking_lab/releases/tag/reference-v1): the complete output archive includes 26 snapshots, optimizer state, split arrays, logs, environment, plots and probe tables. Download the archive and verify it against `SHA256SUMS`. Extract it to restore `grokking_lab_reference` in Colab or Kaggle; no further training is needed to inspect the final model.
+
 
 The original pilot's initialization snapshot, final snapshot and resumable checkpoint are public in the [pilot-v1 release](https://github.com/yashwanth510/grokking_lab/releases/tag/pilot-v1), alongside configuration, training history, GPU environment, model card and SHA-256 checksums. These are the original pilot's weights, not the new baseline's weights.
 
@@ -94,7 +97,7 @@ notebooks/         One portable, concise experiment notebook
 src/grokking_lab/  Training and analysis package
 tests/             Data, model, resume, analysis and notebook checks
 scripts/           Notebook synchronization and model-release preparation
-results/           Original GPU measurements and partial CPU diagnostic
+results/           Original pilot, successful GPU baseline and CPU diagnostic
 reports/           Findings and reference-baseline protocol
 .github/workflows/ GitHub checks
 ```
