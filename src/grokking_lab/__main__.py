@@ -175,7 +175,16 @@ def main():
         table_path = folder / "analysis" / "checkpoint_summary.csv"
         table = pd.DataFrame(rows)
         if table_path.exists():
-            table = pd.concat([pd.read_csv(table_path), table]).drop_duplicates(
+            existing = pd.read_csv(table_path)
+            if "step" in existing and "checkpoint_step" not in existing:
+                existing = existing.rename(
+                    columns={
+                        "step": "checkpoint_step",
+                        "frequency_1_r2": "probe_frequency_1_r2",
+                        "shuffled_frequency_1_r2": "shuffled_probe_r2",
+                    }
+                )
+            table = pd.concat([existing, table]).drop_duplicates(
                 "checkpoint_step", keep="last"
             )
         table.sort_values("checkpoint_step").to_csv(table_path, index=False)
