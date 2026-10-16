@@ -24,5 +24,6 @@
     "FFT round-trip loss matches baseline"
   ],
   "checkpoint_source": "grokking_models_backup.zip",
-  "checkpoints_available_from_backup": true
+  "checkpoints_available_from_backup": true,
+  "checkpoint_release": "https://github.com/yashwanth510/grokking_lab/releases/tag/pilot-v1"
 }

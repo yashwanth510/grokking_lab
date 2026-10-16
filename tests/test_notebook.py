@@ -32,7 +32,7 @@ def test_notebook_smoke_analysis_export_and_gpu_guard(tmp_path, monkeypatch):
             )
         if "pilot_model, pilot_history, pilot_dir = run(" in cell.source:
             pilot_source = cell.source
-    output = tmp_path / "runs/smoke_seed0"
+    output = namespace["ROOT"] / "smoke_seed0"
     for name in [
         "history.csv",
         "learning_curves.png",
@@ -41,7 +41,7 @@ def test_notebook_smoke_analysis_export_and_gpu_guard(tmp_path, monkeypatch):
         "model_step_000002.pt",
     ]:
         assert (output / name).is_file()
-    assert (tmp_path / "grokking_lab_outputs.zip").is_file()
+    assert (namespace["ROOT"].parent / "grokking_lab_outputs.zip").is_file()
     assert not (output / "final_test.json").exists()
     assert pilot_source is not None
     namespace["RUN_PILOT"] = True

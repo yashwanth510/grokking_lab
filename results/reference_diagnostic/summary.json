@@ -1,0 +1,13 @@
+{
+  "train_crossing": 200,
+  "validation_crossing": null,
+  "delay_updates": null,
+  "last_validation_accuracy": 0.0184097140618879,
+  "elapsed_seconds": 194.65603180299516,
+  "completed_steps": 500,
+  "declared_horizon": 25000,
+  "status": "partial CPU diagnostic; not a completed baseline or grokking result",
+  "final_train_accuracy": 1.0,
+  "final_validation_accuracy": 0.0184097140618879,
+  "final_test_evaluated": false
+}

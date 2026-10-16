@@ -1,0 +1,38 @@
+{
+  "checkpoint_step": 30000,
+  "checkpoint_sha256": "ea63a658f6fca2d1d07080d4430d48429da4ac3f1d5b7941f220686e047edd11",
+  "config": {
+    "p": 113,
+    "d_model": 128,
+    "n_heads": 4,
+    "d_mlp": 512,
+    "train_fraction": 0.3,
+    "split_seed": 2026,
+    "seed": 0,
+    "lr": 0.001,
+    "weight_decay": 1.0,
+    "steps": 30000,
+    "log_every": 100,
+    "checkpoint_every": 1000,
+    "init_std": 0.02,
+    "train_mlp_bias": true,
+    "loss_dtype": "float32"
+  },
+  "analysis_device": "cpu",
+  "analysis_torch": "2.12.0+cu130",
+  "train": {
+    "loss": 0.840806862455124,
+    "accuracy": 0.810443864229765
+  },
+  "validation": {
+    "loss": 1.5520931113900924,
+    "accuracy": 0.6302389345867607
+  },
+  "train_crossing": null,
+  "validation_crossing": null,
+  "delay_updates": null,
+  "last_validation_accuracy": 0.6302389345867607,
+  "elapsed_seconds": 272.485593648,
+  "probe_frequency_1_r2": 0.054317942963146626,
+  "shuffled_probe_r2": -0.011499880191082168
+}

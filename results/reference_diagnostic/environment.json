@@ -1,0 +1,8 @@
+{
+  "python": "3.11.8 (main, Feb 26 2026, 19:39:08) [GCC 9.4.0]",
+  "torch": "2.12.0+cu130",
+  "numpy": "2.4.6",
+  "device": "cpu",
+  "platform": "Linux-5.4.0-216-generic-x86_64-with-glibc2.31",
+  "gpu": null
+}

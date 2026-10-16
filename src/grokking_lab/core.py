@@ -1,6 +1,8 @@
+import hashlib
 import json
 import math
 import random
+import shutil
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -46,6 +48,9 @@ class Config:
     steps: int = 30000
     log_every: int = 100
     checkpoint_every: int = 1000
+    init_std: float = 0.02
+    train_mlp_bias: bool = True
+    loss_dtype: str = "float32"
 
 
 def make_data(c):
@@ -83,12 +88,13 @@ class TinyTransformer(nn.Module):
             "causal", torch.triu(torch.ones(3, 3, dtype=torch.bool), diagonal=1)
         )
         self.apply(self.initialize)
-        nn.init.normal_(self.pos, std=0.02)
+        nn.init.normal_(self.pos, std=c.init_std)
+        self.fc1.bias.requires_grad_(c.train_mlp_bias)
+        self.fc2.bias.requires_grad_(c.train_mlp_bias)
 
-    @staticmethod
-    def initialize(m):
+    def initialize(self, m):
         if isinstance(m, (nn.Linear, nn.Embedding)):
-            nn.init.normal_(m.weight, std=0.02)
+            nn.init.normal_(m.weight, std=self.c.init_std)
             if isinstance(m, nn.Linear) and m.bias is not None:
                 nn.init.zeros_(m.bias)
 
@@ -120,6 +126,11 @@ class TinyTransformer(nn.Module):
         return logits
 
 
+def loss_fn(logits, labels, c, reduction="mean"):
+    dtype = torch.float64 if c.loss_dtype == "float64" else torch.float32
+    return F.cross_entropy(logits.to(dtype), labels, reduction=reduction)
+
+
 @torch.no_grad()
 def evaluate(model, x_cpu, y_cpu, ids, ablate_heads=(), batch_size=1024):
     model.eval()
@@ -128,13 +139,16 @@ def evaluate(model, x_cpu, y_cpu, ids, ablate_heads=(), batch_size=1024):
     for chunk in ids.split(batch_size):
         xx, yy = x_cpu[chunk].to(DEVICE), y_cpu[chunk].to(DEVICE)
         logits = model(xx, ablate_heads=ablate_heads)
-        loss_sum += F.cross_entropy(logits, yy, reduction="sum").item()
+        loss_sum += loss_fn(logits, yy, model.c, reduction="sum").item()
         correct += (logits.argmax(-1) == yy).sum().item()
     return {"loss": loss_sum / len(ids), "accuracy": correct / len(ids)}
 
 
-def run(c, name, resume=False):
+def run(c, name, resume=False, stop_at=None):
     validate_config(c)
+    end = c.steps if stop_at is None else stop_at
+    if not 0 < end <= c.steps:
+        raise ValueError("stop_at must be inside the configured training horizon")
     if Path(name).name != name or name in (".", ".."):
         raise ValueError("Run name must be a single directory name")
     ROOT.mkdir(parents=True, exist_ok=True)
@@ -154,11 +168,19 @@ def run(c, name, resume=False):
     if resume:
         # Load only checkpoints you created and trust.
         ck = torch.load(folder / "latest.pt", map_location=DEVICE, weights_only=False)
-        assert ck["config"] == asdict(c), "Resume with the same configuration."
+        assert asdict(Config(**ck["config"])) == asdict(c), (
+            "Resume with the same configuration."
+        )
         m.load_state_dict(ck["model"])
         optimizer.load_state_dict(ck["optimizer"])
         history, start = ck["history"], ck["step"]
         previous_seconds = ck["elapsed_seconds"]
+        if "torch_rng" in ck:
+            torch.set_rng_state(ck["torch_rng"].cpu())
+            if DEVICE.type == "cuda" and ck.get("cuda_rng"):
+                torch.cuda.set_rng_state_all([state.cpu() for state in ck["cuda_rng"]])
+        if start > end:
+            raise ValueError("Checkpoint is later than the requested stopping step")
     (folder / "config.json").write_text(json.dumps(asdict(c), indent=2))
     np.savez(folder / "split_indices.npz", **{k: v.numpy() for k, v in ss.items()})
     train_x, train_y = xx[ss["train"]].to(DEVICE), yy[ss["train"]].to(DEVICE)
@@ -194,6 +216,8 @@ def run(c, name, resume=False):
             "step": step,
             "history": history,
             "elapsed_seconds": elapsed(),
+            "torch_rng": torch.get_rng_state(),
+            "cuda_rng": torch.cuda.get_rng_state_all() if DEVICE.type == "cuda" else [],
         }
         tmp = folder / "temporary.pt"
         torch.save(checkpoint, tmp)
@@ -207,21 +231,59 @@ def run(c, name, resume=False):
     if start == 0:
         log(0)
         save(0, snapshot=True)
-    for step in range(start + 1, c.steps + 1):
+    for step in range(start + 1, end + 1):
         m.train()
         optimizer.zero_grad(set_to_none=True)
-        loss = F.cross_entropy(m(train_x), train_y)
+        loss = loss_fn(m(train_x), train_y, c)
         if not torch.isfinite(loss):
             raise RuntimeError(
                 "Nonfinite loss: inspect learning rate and initialization."
             )
         loss.backward()
         optimizer.step()
-        if step % c.log_every == 0 or step == c.steps:
+        if step % c.log_every == 0 or step == end:
             log(step)
-        if step % c.checkpoint_every == 0 or step == c.steps:
+        if step % c.checkpoint_every == 0 or step == end:
             save(step, snapshot=True)
     return m, pd.DataFrame(history), folder
+
+
+def extend_run(source, name, steps):
+    """Continue in a new folder, retaining the original run and protocol record."""
+    source = Path(source)
+    checkpoint_path = source / "latest.pt"
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    original = Config(**checkpoint["config"])
+    if steps <= original.steps:
+        raise ValueError("An extension must exceed the original configured horizon")
+    if Path(name).name != name or name in (".", ".."):
+        raise ValueError("Run name must be a single directory name")
+    from dataclasses import replace
+
+    extended = replace(original, steps=steps)
+    validate_config(extended)
+    folder = ROOT / name
+    if folder.exists():
+        raise FileExistsError("Use a new run name for an extension")
+    folder.mkdir(parents=True)
+    checkpoint["config"] = asdict(extended)
+    torch.save(checkpoint, folder / "latest.pt")
+    snapshot = source / f"model_step_{checkpoint['step']:06d}.pt"
+    if snapshot.exists():
+        shutil.copy2(snapshot, folder / snapshot.name)
+    provenance = {
+        "parent_run": source.name,
+        "parent_checkpoint_sha256": hashlib.sha256(
+            checkpoint_path.read_bytes()
+        ).hexdigest(),
+        "parent_config": asdict(original),
+        "continued_from_step": checkpoint["step"],
+        "new_steps": steps,
+        "status": "exploratory horizon extension; original run preserved",
+        "parent_test_already_evaluated": (source / "final_test.json").exists(),
+    }
+    (folder / "extension.json").write_text(json.dumps(provenance, indent=2))
+    return run(extended, name, resume=True)
 
 
 def plot_history(h, folder):
@@ -293,8 +355,8 @@ def collect_mlp(m, xx, batch_size=512):
     return torch.cat(pieces).double()
 
 
-def probe_frequency(m, xx, yy, ss, k=1, alpha=1e-2, shuffle=False):
-    hidden = collect_mlp(m, xx)
+def probe_frequency(m, xx, yy, ss, k=1, alpha=1e-2, shuffle=False, hidden=None):
+    hidden = collect_mlp(m, xx) if hidden is None else hidden
     H = torch.cat([hidden, torch.ones(len(hidden), 1, dtype=torch.double)], dim=1)
     angle = 2 * math.pi * k * yy.double() / m.c.p
     targets = torch.stack([torch.cos(angle), torch.sin(angle)], dim=1)
@@ -311,6 +373,55 @@ def probe_frequency(m, xx, yy, ss, k=1, alpha=1e-2, shuffle=False):
     sse = (pred - targets[va]).square().sum()
     sst = (targets[va] - targets[va].mean(0)).square().sum()
     return float(1 - sse / sst)
+
+
+def save_probes(m, xx, yy, ss, folder, step, frequencies=None, alpha=1e-2):
+    """Export predeclared probes and shuffled controls, using validation only."""
+    frequencies = (
+        tuple(range(1, min(5, m.c.p // 2) + 1)) if frequencies is None else frequencies
+    )
+    if alpha <= 0 or not math.isfinite(alpha):
+        raise ValueError("Probe penalty must be finite and positive")
+    if not frequencies or any(k < 1 or k > m.c.p // 2 for k in frequencies):
+        raise ValueError("Probe frequencies must be nonzero real-FFT frequencies")
+    # Do not collect activations or targets from the held-out test pairs.
+    ids = torch.cat([ss["train"], ss["val"]])
+    local_split = {
+        "train": torch.arange(len(ss["train"])),
+        "val": torch.arange(len(ss["train"]), len(ids)),
+    }
+    hidden = collect_mlp(m, xx[ids])
+    rows = []
+    for k in frequencies:
+        rows.append(
+            {
+                "checkpoint_step": step,
+                "frequency": k,
+                "alpha": alpha,
+                "seed": m.c.seed,
+                "split_seed": m.c.split_seed,
+                "train_pairs": len(ss["train"]),
+                "validation_pairs": len(ss["val"]),
+                "r2": probe_frequency(
+                    m, xx[ids], yy[ids], local_split, k, alpha, hidden=hidden
+                ),
+                "shuffled_r2": probe_frequency(
+                    m,
+                    xx[ids],
+                    yy[ids],
+                    local_split,
+                    k,
+                    alpha,
+                    shuffle=True,
+                    hidden=hidden,
+                ),
+                "shuffle_seed": 123,
+            }
+        )
+    table = pd.DataFrame(rows)
+    Path(folder).mkdir(parents=True, exist_ok=True)
+    table.to_csv(Path(folder) / "probes_validation.csv", index=False)
+    return table
 
 
 @torch.no_grad()
@@ -342,3 +453,11 @@ def validate_config(c):
         or c.weight_decay < 0
     ):
         raise ValueError("Learning rate must be positive; decay must be nonnegative")
+    if not math.isfinite(c.init_std) or c.init_std <= 0:
+        raise ValueError(
+            "Initialization standard deviation must be finite and positive"
+        )
+    if c.loss_dtype not in ("float32", "float64"):
+        raise ValueError("loss_dtype must be float32 or float64")
+    if not isinstance(c.train_mlp_bias, bool):
+        raise ValueError("train_mlp_bias must be boolean")
