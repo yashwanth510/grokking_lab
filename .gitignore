@@ -1,0 +1,24 @@
+# Local environments and generated caches
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+build/
+dist/
+
+# Training outputs and model binaries (published measurements stay in results/)
+/runs/
+*.pt
+*.npz
+*.zip
+
+# Local credentials and agent settings
+.env
+.env.*
+.aws/
+.codex/
+.agents/
+.DS_Store

@@ -1,0 +1,28 @@
+{
+  "source_archive": "grokking_experiments_export.zip",
+  "source_sha256": "985da9eb77abef8871db13c897ac560326c85f7b7fbc010913b8c5da86cc4c0e",
+  "status": "Imported user-supplied Colab measurements; not independently rerun",
+  "completed_steps": 30000,
+  "logged_observations": 301,
+  "final_train_accuracy": 0.810443864229765,
+  "final_validation_accuracy": 0.6302389345867607,
+  "best_validation_accuracy": 0.7077947512730122,
+  "best_validation_step": 9400,
+  "elapsed_seconds": 272.485593648,
+  "train_crossing": null,
+  "validation_crossing": null,
+  "delay_updates": null,
+  "checkpoints_in_export": false,
+  "sweep_in_export": false,
+  "final_test_in_export": false,
+  "checks": [
+    "complete step sequence",
+    "finite history",
+    "bounded accuracies",
+    "monotonic timing",
+    "final history matches ablation baseline",
+    "FFT round-trip loss matches baseline"
+  ],
+  "checkpoint_source": "grokking_models_backup.zip",
+  "checkpoints_available_from_backup": true
+}

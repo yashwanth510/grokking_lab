@@ -1,0 +1,15 @@
+{
+  "source_archive": "grokking_models_backup.zip",
+  "source_sha256": "1451e563961fad8df5cdb7c5125294df51f08daf88d6e53a4166b813e44904f5",
+  "step": 30000,
+  "device": "cpu",
+  "validation_recheck": {
+    "loss": 1.5520931113900924,
+    "accuracy": 0.6302389345867607
+  },
+  "export_validation_accuracy": 0.6302389345867607,
+  "absolute_accuracy_difference": 0.0,
+  "latest_matches_final_snapshot": true,
+  "config_matches_export": true,
+  "final_test_evaluated": false
+}

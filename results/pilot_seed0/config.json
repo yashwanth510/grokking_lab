@@ -1,0 +1,14 @@
+{
+  "p": 113,
+  "d_model": 128,
+  "n_heads": 4,
+  "d_mlp": 512,
+  "train_fraction": 0.3,
+  "split_seed": 2026,
+  "seed": 0,
+  "lr": 0.001,
+  "weight_decay": 1.0,
+  "steps": 30000,
+  "log_every": 100,
+  "checkpoint_every": 1000
+}
